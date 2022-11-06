@@ -1,51 +1,38 @@
----
-connection: local
-# Create variables for later use
-vars:
-  key_name: "my_key"  # This is the name of the keypair in AWS
-  region: "eu-central-1" # Frankfurt
-  ansible_python_interpreter: /usr/bin/python3
-vars_files:
-  - vars/keys.vars # This is the file where I store my AWS credentials
+- name: Create ec2 key pair
+  ec2_key:
+    name: "{{ key_name }}"
+    region: "{{ region }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    aws_access_key: "{{ aws_access_key }}"
+    state: present
+  register: keypair
 
-tasks:
-  # If there is not an ec2 key pair, we'll create one
-  - name: Create ec2 key pair
-    ec2_key:
-      name: "{{ key_name }}"
-      region: "{{ region }}"
-      aws_secret_key: "{{ aws_secret_key }}"
-      aws_access_key: "{{ aws_access_key }}"
-      state: present
-    register: keypair
+# Then create ec2 vm with following options (in this case, I am using Centos 7)
+- ec2:
+    assign_public_ip: yes
+    count: 1
+    key_name: "{{ key_name }}"
+    instance_type: "t2.micro"
+    wait: yes
+    group: "default"
+    image: "ami-08b6d44b4f6f7b279" # Centos 7 (https://www.centos.org/download/aws-images/)
+    region: "{{ region }}"
+    vpc_subnet_id: "subnet-036eab5c32516898d" # Used default VPC
+    aws_secret_key: "{{ aws_secret_key }}"
+    aws_access_key: "{{ aws_access_key }}"
+    instance_tags:
+      Name: "MariaDB" # Name of the instance
+  register: ec2
+# - ec2_instance_info:
+#     aws_secret_key: "{{ aws_secret_key }}"
+#     aws_access_key: "{{ aws_access_key }}"
+#     region: "{{ region }}"
+#     filters:
+#       "tag:Name": MariaDB
+#   register: ec2_instance
 
-  # Then create ec2 vm with following options (in this case, I am using Centos 7)
-  - ec2:
-      assign_public_ip: yes
-      count: 1
-      key_name: "{{ key_name }}"
-      instance_type: "t2.micro"
-      wait: yes
-      group: "default"
-      image: "ami-08b6d44b4f6f7b279" # Centos 7 (https://www.centos.org/download/aws-images/)
-      region: "{{ region }}"
-      vpc_subnet_id: "subnet-036eab5c32516898d" # Used default VPC
-      aws_secret_key: "{{ aws_secret_key }}"
-      aws_access_key: "{{ aws_access_key }}"
-      instance_tags:
-        Name: "MariaDB" # Name of the instance
-    register: ec2
-
-  # - ec2_instance_info:
-  #     aws_secret_key: "{{ aws_secret_key }}"
-  #     aws_access_key: "{{ aws_access_key }}"
-  #     region: "{{ region }}"
-  #     filters:
-  #       "tag:Name": MariaDB
-  #   register: ec2_instance
-
-  # - name: Wait for SSH to come up
-  #   wait_for:
-  #     host: "{{ ec2_instance.public_ip_address }}"
-  #     port: 22
-  #     delay: 4
+# - name: Wait for SSH to come up
+#   wait_for:
+#     host: "{{ ec2_instance.public_ip_address }}"
+#     port: 22
+#     delay: 4

@@ -1,16 +1,23 @@
 ---
 - name: MariaDB Automation on a VM (CentOS 7)
   hosts: databases
+  # Create variables for later use
+  vars:
+    key_name: "my_key" # This is the name of the keypair in AWS
+    region: "eu-central-1" # Frankfurt
+  vars_files:
+    - vars/keys.vars # This is the file where I store my AWS credentials
+
   tasks:
     # This part is not necessary if we are using a pre-built instance
     # I am using qemu-kvm to create a VM with Centos 7
-    #  - name: Create a VM on AWS
-    #    include_tasks: ec2.yml
+    # - name: Create a VM on AWS
+    #   include_tasks: ec2/ec2.yml
 
     # Install MariaDB 10.5 on the VM
     - name: Install MariaDB
       yum:
-        name: mariadb-server_10.5.8-1.el7.centos.x86_64.rpm
+        name: MariaDB-server-10.5.15-1.el7.centos.x86_64
         state: present
 
     # Start and enable MariaDB service
@@ -19,6 +26,16 @@
         name: mariadb
         state: started
         enabled: yes
+
+    # I took an error here, so I had to add
+    # the following task to make sure that
+    # mysql-python is installed
+
+    - name: Install MySQL-python
+      yum:
+        name:
+          - python3-pip
+          - MySQL-python
 
     # Create a new database named "internship"
     - name: Create "internship" database
@@ -35,8 +52,13 @@
         priv: "internship.*:SELECT"
         state: present
 
+    - name: Copy sql file to VM
+      copy:
+        src: sql/interviews.sql
+        dest: /home/interviews.sql
+
     - name: Create "interviews" table
       mysql_db:
         name: internship
         state: import
-        target: sql/interviews.sql
+        target: /home/interviews.sql
