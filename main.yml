@@ -1,0 +1,155 @@
+---
+- name: MariaDB Automation on an EC2 instance
+  hosts: localhost
+  connection: local
+  # Create variables for later use
+  vars:
+    key_name: "my_key"
+    region: "eu-central-1"
+    ansible_python_interpreter: /usr/bin/python3
+  vars_files:
+    - vars/keys.vars
+
+  tasks:
+
+    # If there is not an ec2 key pair, create one with ec2_key module
+    - name: Create ec2 key pair
+      ec2_key:
+        name: "{{ key_name }}"
+        region: "{{ region }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        aws_access_key: "{{ aws_access_key }}"
+        state: present
+      register: keypair
+    
+    # - name: list subnet
+    #   ec2_vpc_subnet_info:
+    #     aws_secret_key: "{{ aws_secret_key }}"
+    #     aws_access_key: "{{ aws_access_key }}"
+    #     region: "{{ region }}"
+    #   # return subnets
+    #   register: subnets
+      
+    # - debug: 
+    #     msg: "These {{ subnets.subnet_id }}"
+
+    # Then create ec2 vm with following options (in this case, I am using Centos 7)
+    - ec2:
+        assign_public_ip: yes
+        count: 1
+        key_name: "{{ key_name }}"
+        instance_type: "t2.micro"
+        wait: yes
+        group: "default"
+        image: "ami-08b6d44b4f6f7b279" # Centos 7 (https://www.centos.org/download/aws-images/)
+        region: "{{ region }}"
+        vpc_subnet_id: "subnet-036eab5c32516898d" # Used default VPC
+        aws_secret_key: "{{ aws_secret_key }}"
+        aws_access_key: "{{ aws_access_key }}"
+        instance_tags:
+          Name: "MariaDB"
+      register: ec2
+
+    - ec2_instance_info:
+        aws_secret_key: "{{ aws_secret_key }}"
+        aws_access_key: "{{ aws_access_key }}"
+        region: "{{ region }}"
+        filters:
+          "tag:Name": MariaDB
+      register: ec2_instance
+
+    - name: Wait for SSH to come up
+      wait_for:
+        host: "{{ ec2_instance.public_ip_address }}"
+        port: 22
+        delay: 4
+
+  # If the instance is running, install MariaDB 10.4 on the created ec2 instance
+
+
+    # - name: Install MariaDB 10.4
+    #   hosts: "{{ ec2.instances[0].public_ip_address }}"
+    #   become: yes
+    #   tasks:
+    #     - name: Install MariaDB 10.4
+    #       yum:
+    #         name: mariadb-server
+    #         state: present
+    #       register: mariadb_install
+
+    #     - name: Start MariaDB
+    #       service:
+    #         name: mariadb
+    #         state: started
+    #         enabled: yes
+    #       register: mariadb_start
+
+    #     - name: Enable MariaDB
+    #       service:
+    #         name: mariadb
+    #         enabled: yes
+    #       register: mariadb_enable
+
+    #     - name: Set MariaDB root password
+    #       mysql_user:
+    #         name: root
+    #         password: "my_password"
+    #         login_user: root
+    #         login_password: ""
+    #         login_host: localhost
+    #         login_port: 3306
+    #         login_unix_socket: /var/lib/mysql/mysql.sock
+    #         check_implicit_admin: yes
+    #         update_password: always
+    #       register: mariadb_root_password
+
+    #     - name: Create database
+    #       mysql_db:
+    #         name: my_database
+    #         state: present
+    #         login_user: root
+    #         login_password: "my_password"
+    #         login_host: localhost
+    #         login_port: 3306
+    #         login_unix_socket: /var/lib/mysql/mysql.sock
+    #       register: mariadb_database
+
+    #     - name: Create user
+    #       mysql_user:
+    #         name: my_user
+    #         password: "my_password"
+    #         priv: "my_database.*:ALL"
+    #         state: present
+    #         login_user: root
+    #         login_password: "my_password"
+    #         login_host: localhost
+    #         login_port: 3306
+    #         login_unix_socket: /var/lib/mysql/mysql.sock
+    #       register: mariadb_user
+
+    #     - name: Flush privileges
+    #       mysql_user:
+    #         name: root
+    #         password: "my_password"
+    #         priv: "*.*:ALL"
+    #         state: present
+    #         login_user: root
+    #         login_password: "my_password"
+    #         login_host: localhost
+    #         login_port: 3306
+    #         login_unix_socket: /var/lib/mysql/mysql.sock
+    #         check_implicit_admin: yes
+    #         update_password: always
+    #       register: mariadb_flush_privileges
+
+    #     - name: Restart MariaDB
+    #       service:
+    #         name: mariadb
+    #         state: restarted
+    #         enabled: yes
+    #       register: mariadb_restart
+
+    #     - name: Check if MariaDB is running
+    #       shell: systemctl status mariadb
+
+
