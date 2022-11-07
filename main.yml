@@ -14,6 +14,16 @@
     # - name: Create a VM on AWS
     #   include_tasks: ec2/ec2.yml
 
+    # Get MariaDB repository
+    - name: Get MariaDB repository
+      yum_repository:
+        name: mariadb
+        description: MariaDB
+        baseurl: http://yum.mariadb.org/10.5/centos7-amd64
+        gpgkey: https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+        gpgcheck: yes
+        
+
     # Install MariaDB 10.5 on the VM
     - name: Install MariaDB
       yum:
